@@ -1,0 +1,67 @@
+# Import necessary libraries
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+
+# Load dataset (example: historical cryptocurrency prices)
+# Replace this with your actual dataset
+dataset = pd.read_csv('crypto_prices.csv')
+
+# Preprocess data
+# For simplicity, let's assume the dataset contains only one cryptocurrency (e.g., Bitcoin)
+prices = dataset['Bitcoin_Price'].values.reshape(-1, 1)
+
+# Normalize data
+scaler = MinMaxScaler()
+prices_scaled = scaler.fit_transform(prices)
+
+# Create sequences of historical prices
+def create_sequences(data, seq_length):
+    sequences = []
+    for i in range(len(data) - seq_length):
+        sequence = data[i:i+seq_length]
+        sequences.append(sequence)
+    return np.array(sequences)
+
+seq_length = 10  # Length of historical price sequences
+X = create_sequences(prices_scaled, seq_length)
+
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, prices_scaled[seq_length:], test_size=0.2, random_state=42)
+
+# Build LSTM model
+model = tf.keras.Sequential([
+    tf.keras.layers.LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1], 1)),
+    tf.keras.layers.LSTM(units=50),
+    tf.keras.layers.Dense(1)
+])
+
+# Compile model
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+# Train model
+model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_test, y_test))
+
+# Use the trained model for prediction
+predicted_prices_scaled = model.predict(X_test)
+
+# Inverse scaling to get actual prices
+predicted_prices = scaler.inverse_transform(predicted_prices_scaled)
+
+# Assuming you have a function to connect to Gemini API and execute trades
+def execute_trade(symbol, amount, action):
+    # Code to connect to Gemini API and execute trade
+    pass
+
+# Example: Make a buy/sell decision based on predicted price compared to current price
+current_price = dataset['Bitcoin_Price'].iloc[-1]
+predicted_price = predicted_prices[-1][0]
+
+if predicted_price > current_price:
+    execute_trade('BTCUSD', 1, 'buy')
+elif predicted_price < current_price:
+    execute_trade('BTCUSD', 1, 'sell')
+else:
+    print("Hold position")
