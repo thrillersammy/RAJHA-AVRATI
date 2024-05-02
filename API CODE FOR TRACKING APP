@@ -1,0 +1,40 @@
+from flask import Flask, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///periods.db'
+db = SQLAlchemy(app)
+
+class Period(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    start_date = db.Column(db.DateTime, nullable=False)
+    end_date = db.Column(db.DateTime)
+    user_id = db.Column(db.Integer, nullable=False)
+
+@app.route('/periods', methods=['POST'])
+def add_period():
+    data = request.get_json()
+    new_period = Period(start_date=datetime.strptime(data['start_date'], '%Y-%m-%d'),
+                        end_date=datetime.strptime(data['end_date'], '%Y-%m-%d') if 'end_date' in data else None,
+                        user_id=data['user_id'])
+    db.session.add(new_period)
+    db.session.commit()
+    return jsonify({'message': 'Period added successfully'}), 201
+
+@app.route('/periods/<int:user_id>', methods=['GET'])
+def get_periods(user_id):
+    periods = Period.query.filter_by(user_id=user_id).all()
+    result = []
+    for period in periods:
+        period_data = {
+            'id': period.id,
+            'start_date': period.start_date.strftime('%Y-%m-%d'),
+            'end_date': period.end_date.strftime('%Y-%m-%d') if period.end_date else None
+        }
+        result.append(period_data)
+    return jsonify(result)
+
+if __name__ == '__main__':
+    db.create_all()
+    app.run(debug=True)
